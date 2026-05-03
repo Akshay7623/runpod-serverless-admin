@@ -34,7 +34,7 @@ def upload_base64_video_to_s3(base64_data, data):
 
     bucket_name = data.get("bucketName", os.environ.get('BUCKET_NAME'))
 
-    if workflowId and historyId:
+    if "workflowId" in data and "historyId" in data:
         workflowId = data.get("workflowId", None)
         historyId = data.get("historyId", None)
         targetId = data.get("targetId", None)
