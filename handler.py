@@ -14,28 +14,6 @@ aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
 region = os.environ.get('AWS_REGION', 'ap-south-1')
 
 
-# payload = {
-#     "workflow": workflow,
-#     "images": [
-#         {
-#             "name": "input_ref.png",
-#             "image": base64_image,
-#         }
-#     ],
-#     "data":
-#         {
-#             "workflowId": workflow_id,
-#             "historyId": sub_id,
-#             "targetId": target_id,
-#             "bucketName": bucket_name,
-#             "triggerFunc": trigger_func,
-#             "wanNodeID": wan_node_id,
-#             "type": "template",  # or "workflow"
-#         }
-# }
-
-
-
 # Clients
 s3_client = boto3.client(
     's3',
@@ -129,10 +107,12 @@ def handler(job):
 
     validated_data, error_message = validate_input(job_input)
     if error_message:
+        print(f"Job {job_id} failed: {error_message}")
         return {"error": error_message}
 
     # Extract the custom data object
     client_data = validated_data.get("client_data", {})
+    print("client_data ", client_data)
     output_media_base64 = video_base64
 
     try:
@@ -143,6 +123,7 @@ def handler(job):
             "job_id": job_id
         }
     except Exception as e:
+        print(f"Job {job_id} failed: {str(e)}")
         return {"status": "error", "message": str(e)}
 
 if __name__ == "__main__":
