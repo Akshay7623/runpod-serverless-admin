@@ -13,6 +13,29 @@ aws_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
 aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
 region = os.environ.get('AWS_REGION', 'ap-south-1')
 
+
+# payload = {
+#     "workflow": workflow,
+#     "images": [
+#         {
+#             "name": "input_ref.png",
+#             "image": base64_image,
+#         }
+#     ],
+#     "data":
+#         {
+#             "workflowId": workflow_id,
+#             "historyId": sub_id,
+#             "targetId": target_id,
+#             "bucketName": bucket_name,
+#             "triggerFunc": trigger_func,
+#             "wanNodeID": wan_node_id,
+#             "type": "template",  # or "workflow"
+#         }
+# }
+
+
+
 # Clients
 s3_client = boto3.client(
     's3',
@@ -30,23 +53,21 @@ lambda_client = boto3.client(
 
 def upload_base64_video_to_s3(base64_data, data):
     print("Processing upload with data:", data)
-    # Check for required keys safely
-    generation_id = data.get("generationId")
-    email = data.get("email")
+
     bucket_name = data.get("bucketName", os.environ.get('BUCKET_NAME'))
 
     if generation_id and email and bucket_name:
-        workflow_id = data.get("workflowId", "workflow")
-        sub_template_id = data.get("subTemplateId", "sub_template")
+        workflowId = data.get("workflowId", None)
+        historyId = data.get("historyId", None)
+        targetId = data.get("targetId", None)
+        wanNodeID = data.get("wanNodeID", None)
 
-        file_key = f"outputs/{workflow_id}/{sub_template_id}/{generation_id}.mp4"
+        file_key = f"outputs/{workflowId}/{historyId}.mp4"
 
         # Handle data URI prefix
         if "," in base64_data:
             base64_data = base64_data.split(",")[1]
-
         video_bytes = base64.b64decode(base64_data)
-
         # 1. Upload to S3
         s3_client.put_object(Bucket=bucket_name,Key=file_key,Body=video_bytes,ContentType='video/mp4')
         s3_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{file_key}"
@@ -70,8 +91,7 @@ def upload_base64_video_to_s3(base64_data, data):
     else:
         # Default fallback branch
         media_id = str(uuid.uuid4())
-        user_email = email if email else "anonymous"
-        file_key = f"videos/{user_email}/{media_id}.mp4"
+        file_key = f"videos/{media_id}.mp4"
 
         if "," in base64_data:
             base64_data = base64_data.split(",")[1]
@@ -123,29 +143,6 @@ def handler(job):
             "job_id": job_id
         }
     except Exception as e:
-        #  * Expected invocation payload (JSON body or direct Lambda event):
-        #  *   {
-        #  *     "generationId": "...",
-        #  *     "email": "user@example.com",
-        #  *     "credits": 10,
-        #  *     "reason": "runpod_job_failed: ...",   // optional – stored as failReason in DB
-        #  *     "fcmToken": "...",                    // optional – used to push FCM notification
-        #  *     "platform": "android" | "ios"         // optional – required with fcmToken
-        #  *   }
-
-        failureFunc = client_data.get("failureFunc", None)
-        if failureFunc:
-            try:
-                lambda_payload = { "reason": f"runpod_job_failed: {str(e)}, job_id:{job_id}",generationId: client_data.get("generationId"), email: client_data.get("email"), credits: client_data.get("credits"), fcmToken: client_data.get("fcmToken"), platform: client_data.get("platform") }
-                lambda_client.invoke(
-                    FunctionName=failureFunc,
-                    InvocationType='Event',
-                    Payload=json.dumps(lambda_payload)
-                )
-                print(f"Notified User with: {failureFunc}")
-            catch(Exception as e):
-                print("Triggering failure function failed:",e)
-        
         return {"status": "error", "message": str(e)}
 
 if __name__ == "__main__":
